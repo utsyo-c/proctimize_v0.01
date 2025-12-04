@@ -1,5 +1,6 @@
 streamlit
 pandas
+polars
 numpy
 plotly
 matplotlib
