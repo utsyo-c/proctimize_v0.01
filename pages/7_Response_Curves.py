@@ -38,8 +38,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Global constants - to change
-num_time = 12 #number of months 
-num_geo = 2614  # number of bricks [geo_id.nunique()] 
+num_time = 9 #number of months 
+num_geo = 13  # number of bricks [geo_id.nunique()] 
 # To fetch from dummy data 
 
 #Styled tab;es
@@ -136,7 +136,7 @@ uploaded_file = st.file_uploader("📤 Upload CSV file (Model Results)", type=["
 # Response curve generation inputs
 start = st.number_input("Start Spend Value", value=1000, step=1000)
 stop = st.number_input("Stop Spend Value", value=40000000, step=1000000)
-price = st.number_input("Unit Price of Product", value=49.6, format="%.2f")
+price = st.number_input("Unit Price of Product", value=61.00, format="%.2f")
 step = 1000
 
 if uploaded_file:

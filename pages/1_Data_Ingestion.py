@@ -7,7 +7,6 @@ import io
 import json
 import time
 from datetime import datetime,timedelta
-from azure.storage.blob import BlobServiceClient, ContentSettings
 
 # Helper functions
 
@@ -467,7 +466,7 @@ if uploaded_files:
                             df[date_col], 
                             format=date_format, 
                             errors='coerce'
-                        ).dt.strftime("%Y/%m/%d")
+                        )
                         st.success(f"✅ Date column `{date_col}` standardized from `{date_format}` to `YYYY/MM/DD` format!")
                     except Exception as e:
                         st.error(f"❌ Failed to parse date column `{date_col}`: {e}")
@@ -478,6 +477,13 @@ if uploaded_files:
 
             # Convert to Polars for filtering
             df_final = pl.from_pandas(df)
+            df_final = df_final.with_columns([
+                    pl.col(col).cast(pl.Date) 
+                    for col, dtype in zip(df_final.columns, df_final.dtypes) 
+                    if dtype == pl.Datetime
+                ])
+            st.session_state["df_final"] = df_final
+
 
 
     else:
@@ -552,14 +558,23 @@ if uploaded_files:
                     # Convert and standardize to YYYY/MM/DD format
                     if date_format:
                         try:
+                            # df[date_col] = pd.to_datetime(
+                            #     df[date_col], 
+                            #     format=date_format, 
+                            #     errors='coerce'
+                            # ).dt.strftime("%Y/%m/%d")
+                            # df[date_col] = df[date_col].fillna("")
+
                             df[date_col] = pd.to_datetime(
                                 df[date_col], 
                                 format=date_format, 
                                 errors='coerce'
-                            ).dt.strftime("%Y/%m/%d")
-                            df[date_col] = df[date_col].fillna("")
+                            )
+                            # df[date_col] = df[date_col].fillna("")
 
                             st.success(f"✅ Date column `{date_col}` standardized from `{date_format}` to `YYYY/MM/DD` format!")
+                            # st.dataframe(df.dt.strftime("%Y/%m/%d"))
+                            # st.write(df.dtypes)
                         except Exception as e:
                             st.error(f"❌ Failed to parse date column `{date_col}`: {e}")
                             
@@ -598,12 +613,26 @@ if uploaded_files:
                 for col_name in join_keys:
                     if col_name in df_final.columns:
                         df_final = df_final[df_final[col_name].notnull()]
-                merged_df = df_final.drop_duplicates()
+                # merged_df = df_final.drop_duplicates()
             else:
                 print("⚠️ No join_keys provided — skipping null identifier filtering.")
 
+            for col in df_final.select_dtypes(include="object").columns:
+                    if "date" in col.lower():
+                        try:
+                            df_final[col] = pd.to_datetime(df_final[col], errors='coerce')
+                        except:
+                            pass
+            # st.write(df_final.dtypes)
             df_final = pl.from_pandas(df_final)
+            # st.write(df_final.dtypes)
+            df_final = df_final.with_columns([
+                    pl.col(col).cast(pl.Date) 
+                    for col, dtype in zip(df_final.columns, df_final.dtypes) 
+                    if dtype == pl.Datetime
+                ])
             st.session_state["df_final"] = df_final
+
 
     # ---------------------- FILTERING SECTION ----------------------
     with st.expander("🔍Filter Data"):
@@ -617,17 +646,21 @@ if uploaded_files:
             
         if df_final is not None:
             st.write("### Sample of the Dataset")
-        #    # Drop the first column of the DataFrame and get all numeric columns from the rest
-        #     cols_to_format = df_final.drop(df_final.columns[0], 1).select_dtypes(include='number').columns
 
-        #     # Apply comma formatting only to selected columns
-        #     styled_df = df_final.style.format({col: '{:,}' for col in cols_to_format})
+            # Creating dataframe with only date for display purposes
+            df_display = df_final.clone()
 
-        #     # Display with Streamlit
-        #     st.dataframe(styled_df)
+            for col, dtype in zip(df_display.columns, df_display.dtypes):
+                if dtype in [pl.Date, pl.Datetime]:
+                    df_display = df_display.with_columns(
+                        pl.col(col).dt.strftime("%Y-%m-%d").alias(col)
+                    )
+
+            # Display the formatted DataFrame
+            st.dataframe(df_display.head())
 
 
-            st.dataframe(df_final.head())
+            # st.dataframe(df_final.head())
 
             date_column = st.selectbox("Select the column representing Date in merged dataset", df_final.columns)
             st.session_state["date_col"] = date_column
@@ -704,7 +737,19 @@ if uploaded_files:
 
         if st.session_state.get("filter_complete") and "df_filtered" in st.session_state:
             st.write("Final Filtered Dataset")
-            st.dataframe(st.session_state["df_filtered"].head(100).to_pandas())
+
+            # Display the formatted DataFrame
+            df_filtered = st.session_state["df_filtered"]
+
+            df_filtered_display = df_filtered.clone()
+
+            for col, dtype in zip(df_filtered_display.columns, df_filtered_display.dtypes):
+                if dtype in [pl.Date, pl.Datetime]:
+                    df_filtered_display = df_filtered_display.with_columns(
+                        pl.col(col).dt.strftime("%Y-%m-%d").alias(col)
+                    )
+
+            st.dataframe(df_filtered_display.head(100).to_pandas())
 
             csv_bytes = df_filtered.write_csv()
             st.download_button("📥 Download CSV", data=csv_bytes, file_name="final_filtered_data.csv", mime="text/csv")
@@ -748,6 +793,9 @@ if uploaded_files:
             categorical_config_dict={}
 
             st.subheader("Creating KPI Table")
+
+            # Shift geo_col here
+            #geo_col = st.selectbox("Select the Grouping Column", options=column_names)
             config_result = kpi_table(df_filtered)
             if config_result is not None:
                 numerical_config_dict, categorical_config_dict = config_result

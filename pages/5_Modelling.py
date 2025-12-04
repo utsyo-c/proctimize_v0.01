@@ -162,7 +162,7 @@ def run_regression():
         if var in transformed_df_channel_filtered.columns else 0
     )
 
-    lagged_col = "Lagged " + dependent_variable
+    lagged_col = "Carryover"
     no_spend_vars = ['const', lagged_col]
 
     #st.dataframe(granular_df_date_filtered)
@@ -241,14 +241,14 @@ if __name__ == '__main__':
         granular_df = st.session_state['granular_df']
         transformed_df = st.session_state['transformed_df']
         dependent_variable = st.session_state['dependent_variable']
-        if f"Lagged {dependent_variable}" in transformed_df.columns:
+        if "Carryover" in transformed_df.columns:
             raw_lagged_dependent_variable = st.session_state['raw_lagged_dependent_variable']
 
         st.subheader("Transformed Data")
         st.write(transformed_df.head(50))
        
         if f"{dependent_variable}_transformed" in transformed_df.columns:
-            granular_df[f"Lagged {dependent_variable}"] = raw_lagged_dependent_variable
+            granular_df["Carryover"] = raw_lagged_dependent_variable
             dependent_variable_user_input = st.selectbox("Select Dependent Variable", list((dependent_variable, f"{dependent_variable}_transformed")), index=0)
         else:
             dependent_variable_user_input = dependent_variable

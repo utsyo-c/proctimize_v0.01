@@ -178,7 +178,7 @@ def transform_edited_df(df, edited_df, geo_column, dependent_variable):
                     .shift(lags, fill_value=0).fillna(0))
 
             # Store raw lagged value if this is the special channel
-                if channel == f"Lagged {dependent_variable}":
+                if channel == "Carryover":
                     st.session_state["raw_lagged_dependent_variable"] = lagged_series.copy()
 
                 transformed_df[f"{channel}_transformed"] = (
@@ -201,9 +201,9 @@ def transform_edited_df(df, edited_df, geo_column, dependent_variable):
 
 
 # Function to handle user input and apply transformations
-def user_input(date_column, geo_column, df):
+def user_input(date_column, geo_column, dma_column, zip_column, df):
 
-    remove_cols = [date_column, geo_column]
+    remove_cols = [date_column, geo_column, dma_column, zip_column]
     filtered_df = df.drop(columns=remove_cols)
 
     # Define initial data for user input
@@ -240,13 +240,13 @@ def user_input(date_column, geo_column, df):
         if row["Channel Name"] == dependent_variable:
             edited_df.at[i, "Lags"] = None
             edited_df.at[i, "Adstock"] = None
-        elif row["Channel Name"] == f"Lagged {dependent_variable}":
+        elif row["Channel Name"] == "Carryover":
             edited_df.at[i, "Adstock"] = None
     
     # Display helpful info
     if dependent_variable in channel_names:
         st.info(f"Lag and Adstock values for '{dependent_variable}' will be ignored.")
-    if f"Lagged {dependent_variable}" in channel_names:
+    if "Carryover" in channel_names:
         st.info(f"Adstock value for 'Lagged {dependent_variable}' will be ignored.")
 
 
@@ -281,6 +281,7 @@ def user_input(date_column, geo_column, df):
             st.subheader("Transformed Data")
 
             # Apply formatting only to numeric columns
+            
             format_dict = {col: "{:,.2f}" for col in transformed_df.select_dtypes(include='number').columns}
             styled_df = transformed_df.head(50).style.format(format_dict)
             st.write(styled_df)
@@ -300,12 +301,16 @@ if __name__ == '__main__':
     if ('date_column' in st.session_state 
         and 'geo_column' in st.session_state 
         and 'granular_df' in st.session_state 
+        and 'DMA_column' in st.session_state
+        and 'ZIP_column' in st.session_state
         and 'dependent_variable' in st.session_state):
 
         # Loading the session state variables
         date_column = st.session_state['date_column']
         geo_column = st.session_state['geo_column']
         df_raw = st.session_state['granular_df'].copy()
+        dma_column = st.session_state['DMA_column']
+        zip_column = st.session_state['ZIP_column']
         df = st.session_state['granular_df'].copy()
         dependent_variable = st.session_state['dependent_variable']
         #granularity_level_user_input = st.session_state['granularity_level_user_input']
@@ -323,9 +328,9 @@ if __name__ == '__main__':
         option = st.selectbox(f"Do you want to have a lagged version of the dependent variable - ({dependent_variable})?", [None ,'Yes', 'No'])
         if option == 'Yes':
             column_list = [col for col in df.columns if col != dependent_variable]
-            df[f'Lagged {dependent_variable}'] = df[dependent_variable]
-            df = df[[dependent_variable, f"Lagged {dependent_variable}"] + column_list]
-            st.success(f"Lagged {dependent_variable} variable is created. Please specify number of lags in the data frame below.")
+            df["Carryover"] = df[dependent_variable]
+            df = df[[dependent_variable, "Carryover"] + column_list]
+            st.success("Carryover variable is created. Please specify number of lags in the data frame below.")
         elif option == "No":
             st.warning(f"No lagged version of dependent variable {dependent_variable} will be used.")
         else:
@@ -333,7 +338,7 @@ if __name__ == '__main__':
         
         if option is not None:
             st.subheader("Please specify data transformations below")
-            transformed_df = user_input(date_column, geo_column, df)
+            transformed_df = user_input(date_column, geo_column, dma_column, zip_column, df)
             st.session_state["transformed_df"] = transformed_df
 
         # Show transformed_df if it already exists in session_state

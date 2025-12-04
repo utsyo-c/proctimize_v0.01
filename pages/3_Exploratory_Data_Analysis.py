@@ -71,9 +71,15 @@ def eda_sales_trend(uploaded_file):
         #geo_column = st.selectbox("Select Modeling Granularity Column", [None] + list(df.columns), index=0)
         #date_column = st.selectbox("Select Date Column", [None] + list(df.columns), index=0)
 
-        if "geo_column" and "date_column" in st.session_state:
+        if ("geo_column" in st.session_state 
+            and "date_column" in st.session_state 
+            and "ZIP_column" in st.session_state
+            and "DMA_column" in st.session_state):
+
             geo_column = st.session_state["geo_column"]
             date_column = st.session_state["date_column"]
+            zip_column = st.session_state["ZIP_column"]
+            dma_column = st.session_state["DMA_column"]
 
         if "geo_column" not in st.session_state or "date_column" not in st.session_state:
             st.warning("Modelling Granularity or date column not detected. Please select manually.")
@@ -142,9 +148,10 @@ def eda_sales_trend(uploaded_file):
             # Control totals    
             st.subheader("Control Totals")
 
-            remove_cols = [date_column, geo_column]
+            remove_cols = [date_column, geo_column, zip_column, dma_column]
             filtered_df = df.drop(columns=remove_cols)
-
+            filtered_df = filtered_df.select_dtypes(include='number')
+            
             subtotal_df = pd.DataFrame({
                 'Channel': filtered_df.columns,
                 'Total': filtered_df.sum()
@@ -196,7 +203,8 @@ def eda_sales_trend(uploaded_file):
             # Metric to visualize
             st.subheader("Trend visualization")
 
-            numeric_cols = df.select_dtypes(include='number').columns.tolist()
+            remove_cols = [date_column, geo_column, zip_column, dma_column]
+            numeric_cols = df.drop(columns=remove_cols).select_dtypes(include='number').columns.tolist()
             numeric_cols = [item for item in numeric_cols]
 
             if not numeric_cols:
